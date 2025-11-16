@@ -1307,6 +1307,11 @@
         function updateBarChart() {
             const ctx = document.getElementById('barChart').getContext('2d');
 
+            // Get selected departments from checkboxes (same as scatter plot)
+            const compareDepts = Array.from(document.querySelectorAll('#deptCheckboxContainer input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+            const isComparing = compareDepts.length > 0 && compareDepts[0] !== '';
+
             // Calculate department statistics
             const deptStats = {};
             filteredData.forEach(row => {
@@ -1339,6 +1344,34 @@
             // Take top 15 departments by average salary
             const topDepts = deptArray.slice(0, 15);
 
+            // Create color arrays matching departments (same as scatter plot)
+            const backgroundColors = [];
+            const borderColors = [];
+
+            if (isComparing) {
+                // When comparing: assign each department the SAME color as in scatter plot
+                topDepts.forEach(dept => {
+                    // Find the index of this department in the comparison list
+                    const compIndex = compareDepts.indexOf(dept.name);
+                    if (compIndex >= 0) {
+                        // Use the same color from departmentColors array
+                        const color = departmentColors[compIndex % departmentColors.length];
+                        backgroundColors.push(color.bg);
+                        borderColors.push(color.border);
+                    } else {
+                        // Department not in comparison list (shouldn't happen with filters)
+                        backgroundColors.push('rgba(199, 199, 199, 0.7)');
+                        borderColors.push('rgba(199, 199, 199, 1)');
+                    }
+                });
+            } else {
+                // Not comparing: use single default color
+                topDepts.forEach(() => {
+                    backgroundColors.push('rgba(102, 126, 234, 0.7)');
+                    borderColors.push('rgba(102, 126, 234, 1)');
+                });
+            }
+
             if (barChart) {
                 barChart.destroy();
             }
@@ -1350,8 +1383,8 @@
                     datasets: [{
                         label: 'Average Salary',
                         data: topDepts.map(d => d.avgSalary),
-                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
-                        borderColor: 'rgba(102, 126, 234, 1)',
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
                         borderWidth: 2
                     }]
                 },

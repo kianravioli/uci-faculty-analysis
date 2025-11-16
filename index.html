@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCI Faculty Analysis 2024 - Salary vs Teaching Load</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f8f9fa;
+            color: #2c3e50;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+        }
+
+        header {
+            background: linear-gradient(135deg, #005a8c 0%, #0073a8 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            border-bottom: 3px solid #c99700;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .subtitle {
+            font-size: 1em;
+            color: #ffd966;
+            font-weight: 400;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 30px;
+            background: #f0f4f7;
+            border-bottom: 2px solid #c99700;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e8ecef;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .stat-card:hover {
+            border-color: #0073a8;
+            box-shadow: 0 4px 12px rgba(0, 115, 168, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: 600;
+            color: #005a8c;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #5a6c7d;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .controls {
+            padding: 30px;
+            background: white;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.95em;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+
+        select[multiple] {
+            height: auto;
+            min-height: 120px;
+        }
+
+        select[multiple] option {
+            padding: 8px;
+            border-radius: 4px;
+            margin: 2px 0;
+        }
+
+        select[multiple] option:checked {
+            background: #667eea;
+            color: white;
+        }
+
+        small {
+            font-size: 0.85em;
+        }
+
+        .dept-checkbox-item {
+            padding: 6px 8px;
+            margin: 2px 0;
+            border-radius: 4px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .dept-checkbox-item:hover {
+            background: #f7fafc;
+        }
+
+        .dept-checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .dept-checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            flex: 1;
+            font-size: 0.9em;
+            font-weight: 400;
+        }
+
+        .dept-checkbox-item.hidden {
+            display: none;
+        }
+
+        .chart-container {
+            padding: 30px;
+            background: white;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 500px;
+            margin-bottom: 30px;
+        }
+
+        .chart-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .chart-tab {
+            padding: 10px 20px;
+            background: #f7f9fb;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #5a6c7d;
+        }
+
+        .chart-tab.active {
+            background: #0073a8;
+            color: white;
+            border-color: #0073a8;
+        }
+
+        .chart-tab:hover {
+            background: #e8f0f5;
+            border-color: #0073a8;
+        }
+
+        .chart-tab.active:hover {
+            background: #005a8c;
+        }
+
+        .table-container {
+            padding: 30px;
+            background: white;
+        }
+
+        .table-wrapper {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: #f7fafc;
+            color: #2d3748;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85em;
+            cursor: pointer;
+            user-select: none;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid #e2e8f0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        th:hover {
+            background: #edf2f7;
+        }
+
+        th::after {
+            content: ' ↕';
+            opacity: 0.3;
+            font-size: 0.8em;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f7fafc;
+            font-size: 0.9em;
+        }
+
+        tbody tr:hover {
+            background: #f7fafc;
+        }
+
+        .dept-full-name {
+            color: #4a5568;
+            font-size: 0.85em;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .stat-value {
+                font-size: 1.5em;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+        }
+
+        .top-professors {
+            padding: 30px;
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .stats-section {
+            margin-bottom: 40px;
+        }
+
+        .stats-section h3 {
+            color: #005a8c;
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #c99700;
+        }
+
+        .top-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .top-card {
+            background: white;
+            padding: 18px;
+            border-radius: 8px;
+            border: 2px solid #e8ecef;
+            border-left: 4px solid #0073a8;
+            transition: all 0.2s;
+        }
+
+        .top-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 115, 168, 0.12);
+            border-left-color: #c99700;
+        }
+
+        .top-card h4 {
+            color: #2c3e50;
+            margin-bottom: 12px;
+            font-size: 1em;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        .professor-name {
+            font-weight: 600;
+            color: #0073a8;
+            font-size: 1.05em;
+            margin-bottom: 8px;
+        }
+
+        .professor-details {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .data-note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+
+        .data-note h3 {
+            color: #856404;
+            font-size: 1em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .data-note p {
+            color: #856404;
+            font-size: 0.9em;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .data-note ul {
+            margin-left: 20px;
+            color: #856404;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .data-quality-filters {
+            background: #f0f4f7;
+            border: 2px solid #0073a8;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .data-quality-filters h3 {
+            color: #005a8c;
+            font-size: 1em;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .quality-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .quality-stat {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #0073a8;
+        }
+
+        .quality-stat-value {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #005a8c;
+        }
+
+        .quality-stat-label {
+            font-size: 0.85em;
+            color: #5a6c7d;
+            margin-top: 4px;
+        }
+
+        .filter-checkboxes {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: white;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-checkbox-item:hover {
+            border-color: #0073a8;
+            background: #f7f9fb;
+        }
+
+        .filter-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            cursor: pointer;
+            accent-color: #0073a8;
+        }
+
+        .filter-checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-complete {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-teaching {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .badge-research {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>UCI Faculty Analysis Dashboard (2015-2020, 2024)</h1>
+            <p class="subtitle">Analysis of Professor Salaries vs Teaching Load - All Years Combined</p>
+            <p style="font-size: 0.85em; color: #999; margin-top: 8px;">Note: Data for 2021-2023 is not included due to incomplete salary records during those years</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalProfessors">-</div>
+                <div class="stat-label">Total Professors</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalSalary">-</div>
+                <div class="stat-label">Total Salaries</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgCostPerHour">-</div>
+                <div class="stat-label">Avg $/Credit Hour</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalCreditHours">-</div>
+                <div class="stat-label">Total Credit Hours</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <h2 style="margin-bottom: 20px;">Filters</h2>
+            <div class="filters">
+                <div class="control-group">
+                    <label for="searchName">Search Professor Name</label>
+                    <input type="text" id="searchName" placeholder="Type to search...">
+                </div>
+                <div class="control-group">
+                    <label for="filterDept">Filter by Department (Single)</label>
+                    <select id="filterDept">
+                        <option value="">All Departments</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="compareDepts">Compare Departments (Multi-Select)</label>
+                    <input type="text" id="deptSearchBox" placeholder="Search departments..." style="margin-bottom: 8px;">
+                    <div id="deptCheckboxContainer" style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; background: white;">
+                        <!-- Checkboxes will be inserted here -->
+                    </div>
+                    <small style="color: #666; margin-top: 5px; display: block;">Select departments to compare with different colors</small>
+                </div>
+                <div class="control-group">
+                    <label for="minSalary">Minimum Salary</label>
+                    <input type="number" id="minSalary" placeholder="e.g., 50000">
+                </div>
+                <div class="control-group">
+                    <label for="minStudents">Minimum Credit Hours</label>
+                    <input type="number" id="minStudents" placeholder="e.g., 100">
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="data-quality-filters">
+                <h3>📊 Data Quality Filters</h3>
+                <div class="quality-stats">
+                    <div class="quality-stat">
+                        <div class="quality-stat-value" id="completeCount">-</div>
+                        <div class="quality-stat-label">Complete Records</div>
+                    </div>
+                    <div class="quality-stat">
+                        <div class="quality-stat-value" id="teachingOnlyCount">-</div>
+                        <div class="quality-stat-label">Teaching-Only (Adjuncts)</div>
+                    </div>
+                    <div class="quality-stat">
+                        <div class="quality-stat-value" id="researchOnlyCount">-</div>
+                        <div class="quality-stat-label">Research/Admin Only</div>
+                    </div>
+                </div>
+                <div class="filter-checkboxes">
+                    <div class="filter-checkbox-item">
+                        <input type="checkbox" id="showComplete" checked>
+                        <label for="showComplete">✓ Complete Data (Salary + Teaching)</label>
+                    </div>
+                    <div class="filter-checkbox-item">
+                        <input type="checkbox" id="showTeachingOnly" checked>
+                        <label for="showTeachingOnly">👨‍🏫 Adjunct/Part-time (Teaching Only)</label>
+                    </div>
+                    <div class="filter-checkbox-item">
+                        <input type="checkbox" id="showResearchOnly" checked>
+                        <label for="showResearchOnly">🔬 Research/Admin (Salary Only)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2 style="margin-bottom: 20px;">Visualizations</h2>
+            <div class="chart-tabs">
+                <button class="chart-tab active" onclick="switchChart('scatter')">Scatter Plot - Professors</button>
+                <button class="chart-tab" onclick="switchChart('bar')">Bar Chart - Departments</button>
+                <button class="chart-tab" onclick="switchChart('trend')">Salary Trends (All Years - Not Filtered)</button>
+            </div>
+            <div class="chart-wrapper" id="scatterChartWrapper">
+                <canvas id="scatterChart"></canvas>
+            </div>
+            <div class="chart-wrapper" id="barChartWrapper" style="display: none;">
+                <canvas id="barChart"></canvas>
+            </div>
+            <div class="chart-wrapper" id="trendChartWrapper" style="display: none;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="top-professors">
+            <h2 style="margin-bottom: 10px;">Department Statistics (All-Time)</h2>
+            <p style="color: #5a6c7d; font-size: 0.9em; margin-bottom: 20px;">Based on all available data across all years. These rankings don't change with filters.</p>
+            <div id="departmentStats"></div>
+        </div>
+
+        <div class="table-container">
+            <h2 style="margin-bottom: 20px;">All Faculty Data</h2>
+
+            <div class="data-note">
+                <h3>📊 About the Data</h3>
+                <p><strong>Why do some professors show $0 salary or 0 credit hours?</strong></p>
+                <ul>
+                    <li><strong>$0 Salary:</strong> These professors taught classes but we couldn't find their salary in the UC Annual Wage database. This usually happens with:
+                        <ul>
+                            <li>Adjunct/part-time instructors (paid hourly, not salaried)</li>
+                            <li>Graduate student teaching assistants</li>
+                            <li>Visiting or temporary faculty</li>
+                            <li>Name variations between databases</li>
+                        </ul>
+                    </li>
+                    <li><strong>0 Credit Hours:</strong> These professors have a salary record but didn't teach any regular courses during Fall/Winter/Spring quarters. Analysis shows:
+                        <ul>
+                            <li><strong>Most common (~85%):</strong> On sabbatical, research leave, or temporary administrative duties</li>
+                            <li><strong>Some (~10%):</strong> Truly research-focused faculty (consistently 0 credit hours across all years)</li>
+                            <li><strong>Few (~5%):</strong> Medical/clinical faculty, or administrative staff with faculty titles</li>
+                        </ul>
+                        <em>Note: Only ~159 professors consistently show 0 credit hours across all years they appear in the data.</em>
+                    </li>
+                </ul>
+                <p><strong>Note:</strong> We only count Fall, Winter, and Spring quarter courses. Summer sessions are excluded to align with annual salary reporting periods.</p>
+            </div>
+
+            <div id="tableLoading" class="loading">Loading data...</div>
+            <div class="table-wrapper" id="tableWrapper" style="display: none;">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0)">Name</th>
+                            <th onclick="sortTable(1)">Department</th>
+                            <th onclick="sortTable(2)">Salary</th>
+                            <th onclick="sortTable(3)">Credit Hours</th>
+                            <th onclick="sortTable(4)">Cost/Hour</th>
+                            <th onclick="sortTable(5)">Sections</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let filteredData = [];
+        let scatterChart = null;
+        let barChart = null;
+        let trendChart = null;
+        let currentChart = 'scatter';
+
+        // Department abbreviation to full name mapping
+        const deptNames = {
+            'AC ENG': 'Academic English',
+            'AFAM': 'African American Studies',
+            'ANATOMY': 'Anatomy',
+            'ANESTH': 'Anesthesiology',
+            'ANTHRO': 'Anthropology',
+            'ARABIC': 'Arabic',
+            'ART': 'Art',
+            'ART HIS': 'Art History',
+            'ARTS': 'Arts',
+            'ASIANAM': 'Asian American Studies',
+            'BANA': 'Business Analytics',
+            'BATS': 'Biomedical & Translational Science',
+            'BIO SCI': 'Biological Sciences',
+            'BIOCHEM': 'Biochemistry',
+            'BME': 'Biomedical Engineering',
+            'BMES': 'Biomedical Engineering',
+            'CAMPREC': 'Campus Recreation',
+            'CBE': 'Chemical & Biomolecular Engineering',
+            'CHEM': 'Chemistry',
+            'CHC/LAT': 'Chicano/Latino Studies',
+            'CHINESE': 'Chinese',
+            'CLASSIC': 'Classics',
+            'CLASSICS': 'Classics',
+            'CLT&THY': 'Culture & Theory',
+            'COGS': 'Cognitive Sciences',
+            'COM LIT': 'Comparative Literature',
+            'COMPSCI': 'Computer Science',
+            'CRITISM': 'Criticism',
+            'CRM/LAW': 'Criminology, Law & Society',
+            'CSE': 'Computer Science & Engineering',
+            'DANCE': 'Dance',
+            'DEV BIO': 'Developmental Biology',
+            'DRAMA': 'Drama',
+            'EARTHSS': 'Earth System Science',
+            'EAS': 'East Asian Studies',
+            'ECO EVO': 'Ecology & Evolutionary Biology',
+            'ECON': 'Economics',
+            'ECPS': 'Education, Cognition & Psychological Sciences',
+            'EDUC': 'Education',
+            'EECS': 'Electrical Engineering & Computer Science',
+            'EHS': 'Environmental Health Sciences',
+            'ENGLISH': 'English',
+            'ENGR': 'Engineering',
+            'ENGRCEE': 'Civil & Environmental Engineering',
+            'ENGRMAE': 'Mechanical & Aerospace Engineering',
+            'EPIDEM': 'Epidemiology',
+            'ER MED': 'Emergency Medicine',
+            'EURO ST': 'European Studies',
+            'FAM MED': 'Family Medicine',
+            'FIN': 'Finance',
+            'FLM&MDA': 'Film & Media Studies',
+            'FRENCH': 'French',
+            'GEN&SEX': 'Gender & Sexuality Studies',
+            'GERMAN': 'German',
+            'GLBLCLT': 'Global Cultures',
+            'GLBL ME': 'Global Middle East Studies',
+            'GREEK': 'Greek',
+            'HISTORY': 'History',
+            'HUMAN': 'Humanities',
+            'I&C SCI': 'Information & Computer Sciences',
+            'IN4MATX': 'Informatics',
+            'INNO': 'Innovation',
+            'INT MED': 'Internal Medicine',
+            'INTL ST': 'International Studies',
+            'ITALIAN': 'Italian',
+            'JAPANSE': 'Japanese',
+            'JAPANESE': 'Japanese',
+            'KOREAN': 'Korean',
+            'LATIN': 'Latin',
+            'LINGUIS': 'Linguistics',
+            'LIT JRN': 'Literary Journalism',
+            'LPS': 'Logic & Philosophy of Science',
+            'LSCI': 'Language Science',
+            'M&MG': 'Microbiology & Molecular Genetics',
+            'MATH': 'Mathematics',
+            'MED ED': 'Medical Education',
+            'MED HUM': 'Medical Humanities',
+            'MGMT': 'Management',
+            'MGMT EP': 'Management Executive Program',
+            'MGMT FE': 'Management Fully Employed MBA',
+            'MGMTMBA': 'MBA Management',
+            'MGMTPHD': 'PhD Management',
+            'MIC BIO': 'Microbiology',
+            'MOL BIO': 'Molecular Biology',
+            'MPAC': 'Master of Professional Accountancy',
+            'MSE': 'Materials Science & Engineering',
+            'MUSIC': 'Music',
+            'NET SYS': 'Networked Systems',
+            'NEURBIO': 'Neurobiology',
+            'NEUROBIO': 'Neurobiology',
+            'NEUROL': 'Neurology',
+            'NUR SCI': 'Nursing Science',
+            'OB/GYN': 'Obstetrics & Gynecology',
+            'PATH': 'Pathology',
+            'PED GEN': 'Pediatric Genetics',
+            'PEDS': 'Pediatrics',
+            'PERSIAN': 'Persian',
+            'PHARM': 'Pharmacy',
+            'PHILOS': 'Philosophy',
+            'PHMD': 'Pharmaceutical Sciences (PharmD)',
+            'PHRMSCI': 'Pharmaceutical Sciences',
+            'PHYSICS': 'Physics',
+            'PHYSIO': 'Physiology',
+            'POL SCI': 'Political Science',
+            'PSCI': 'Political Science',
+            'PSYCH': 'Psychology',
+            'PUB POL': 'Public Policy',
+            'PUBHLTH': 'Public Health',
+            'RADIO': 'Radiology',
+            'REL STD': 'Religious Studies',
+            'ROTC': 'Reserve Officers Training Corps',
+            'RUSSIAN': 'Russian',
+            'SOC SCI': 'Social Science',
+            'SOCECOL': 'Social Ecology',
+            'SOCIOL': 'Sociology',
+            'SPANISH': 'Spanish',
+            'STATS': 'Statistics',
+            'SURGERY': 'Surgery',
+            'TAGALOG': 'Tagalog',
+            'UCDC': 'UC Washington Center',
+            'UNI AFF': 'University Affairs',
+            'UNI STU': 'University Studies',
+            'UPPP': 'Urban Planning & Public Policy',
+            'VIETMSE': 'Vietnamese',
+            'VIS STD': 'Visual Studies',
+            'WRITING': 'Writing'
+        };
+
+        function getDeptFullName(abbrev) {
+            return deptNames[abbrev] || abbrev;
+        }
+
+        // Load CSV data (all years, aggregated by professor)
+        Papa.parse('all_years_data.csv', {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            complete: function(results) {
+                // Group by professor name and aggregate across all years
+                const professorMap = {};
+
+                results.data.forEach(row => {
+                    if (!row.professor_name || !row.salary) return;
+
+                    const name = row.professor_name;
+                    const dept = row.departments ? row.departments.split('|')[0] : '';
+                    const salary = parseFloat(row.salary) || 0;
+                    const creditHours = parseFloat(row.total_credit_hours) || 0;
+                    const sections = parseFloat(row.total_sections) || 0;
+
+                    if (!professorMap[name]) {
+                        professorMap[name] = {
+                            name: name,
+                            department: dept,
+                            totalSalary: 0,
+                            totalCreditHours: 0,
+                            totalSections: 0,
+                            yearCount: 0
+                        };
+                    }
+
+                    // Aggregate data across all years for this professor
+                    professorMap[name].totalSalary += salary;
+                    professorMap[name].totalCreditHours += creditHours;
+                    professorMap[name].totalSections += sections;
+                    professorMap[name].yearCount++;
+                });
+
+                // Convert to array and calculate averages
+                allData = Object.values(professorMap).map(prof => ({
+                    name: prof.name,
+                    department: prof.department,
+                    salary: prof.totalSalary / prof.yearCount,  // Average salary across years
+                    student_credit_hours: prof.totalCreditHours,  // Total credit hours across all years
+                    num_sections: prof.totalSections,  // Total sections across all years
+                    cost_per_credit_hour: prof.totalCreditHours > 0 ? (prof.totalSalary / prof.yearCount) / (prof.totalCreditHours / prof.yearCount) : 0
+                }));
+
+                filteredData = allData;
+                initializePage();
+            },
+            error: function(error) {
+                document.getElementById('tableLoading').innerHTML =
+                    '<div class="no-data">Error loading data. Please ensure all_years_data.csv is in the correct location.</div>';
+            }
+        });
+
+        function initializePage() {
+            document.getElementById('tableLoading').style.display = 'none';
+            document.getElementById('tableWrapper').style.display = 'block';
+
+            populateDepartmentFilter();
+            updateDataQualityStats();
+            updateStats();
+            updateCharts();
+            updateDepartmentStats();
+            renderTable();
+            setupEventListeners();
+        }
+
+        function populateDepartmentFilter() {
+            const departments = [...new Set(allData.map(row => row.department))].sort();
+
+            // Populate single select filter
+            const select = document.getElementById('filterDept');
+            departments.forEach(dept => {
+                if (dept) {
+                    const option = document.createElement('option');
+                    option.value = dept;
+                    option.textContent = getDeptFullName(dept);
+                    select.appendChild(option);
+                }
+            });
+
+            // Populate checkbox comparison with search
+            const container = document.getElementById('deptCheckboxContainer');
+            departments.forEach(dept => {
+                if (dept) {
+                    const fullName = getDeptFullName(dept);
+                    const div = document.createElement('div');
+                    div.className = 'dept-checkbox-item';
+                    div.dataset.dept = dept;
+                    div.dataset.fullName = fullName.toLowerCase();
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = 'dept-' + dept.replace(/[^a-zA-Z0-9]/g, '');
+                    checkbox.value = dept;
+                    checkbox.addEventListener('change', applyFilters);
+
+                    const label = document.createElement('label');
+                    label.htmlFor = checkbox.id;
+                    label.textContent = fullName;
+
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    container.appendChild(div);
+
+                    // Make the whole div clickable
+                    div.addEventListener('click', function(e) {
+                        if (e.target !== checkbox) {
+                            checkbox.checked = !checkbox.checked;
+                            applyFilters();
+                        }
+                    });
+                }
+            });
+
+            // Setup department search
+            const searchBox = document.getElementById('deptSearchBox');
+            searchBox.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const items = document.querySelectorAll('.dept-checkbox-item');
+
+                items.forEach(item => {
+                    const fullName = item.dataset.fullName;
+                    const dept = item.dataset.dept.toLowerCase();
+
+                    if (fullName.includes(searchTerm) || dept.includes(searchTerm)) {
+                        item.classList.remove('hidden');
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('searchName').addEventListener('input', applyFilters);
+            document.getElementById('filterDept').addEventListener('change', applyFilters);
+            document.getElementById('minSalary').addEventListener('input', applyFilters);
+            document.getElementById('minStudents').addEventListener('input', applyFilters);
+
+            // Data quality filter checkboxes
+            document.getElementById('showComplete').addEventListener('change', applyFilters);
+            document.getElementById('showTeachingOnly').addEventListener('change', applyFilters);
+            document.getElementById('showResearchOnly').addEventListener('change', applyFilters);
+        }
+
+        function updateDataQualityStats() {
+            let completeCount = 0;
+            let teachingOnlyCount = 0;
+            let researchOnlyCount = 0;
+
+            allData.forEach(row => {
+                const hasSalary = row.salary > 0;
+                const hasTeaching = row.student_credit_hours > 0;
+
+                if (hasSalary && hasTeaching) {
+                    completeCount++;
+                } else if (!hasSalary && hasTeaching) {
+                    teachingOnlyCount++;
+                } else if (hasSalary && !hasTeaching) {
+                    researchOnlyCount++;
+                }
+            });
+
+            const total = allData.length;
+            document.getElementById('completeCount').textContent =
+                `${completeCount} (${(completeCount/total*100).toFixed(0)}%)`;
+            document.getElementById('teachingOnlyCount').textContent =
+                `${teachingOnlyCount} (${(teachingOnlyCount/total*100).toFixed(0)}%)`;
+            document.getElementById('researchOnlyCount').textContent =
+                `${researchOnlyCount} (${(researchOnlyCount/total*100).toFixed(0)}%)`;
+        }
+
+        function getRecordType(row) {
+            const hasSalary = row.salary > 0;
+            const hasTeaching = row.student_credit_hours > 0;
+
+            if (hasSalary && hasTeaching) return 'complete';
+            if (!hasSalary && hasTeaching) return 'teaching';
+            if (hasSalary && !hasTeaching) return 'research';
+            return 'unknown';
+        }
+
+        function applyFilters() {
+            const searchName = document.getElementById('searchName').value.toLowerCase();
+            const filterDept = document.getElementById('filterDept').value;
+
+            // Get selected departments from checkboxes
+            const compareDepts = Array.from(document.querySelectorAll('#deptCheckboxContainer input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+
+            const minSalary = parseFloat(document.getElementById('minSalary').value) || 0;
+            const minStudents = parseFloat(document.getElementById('minStudents').value) || 0;
+
+            // Data quality filters
+            const showComplete = document.getElementById('showComplete').checked;
+            const showTeachingOnly = document.getElementById('showTeachingOnly').checked;
+            const showResearchOnly = document.getElementById('showResearchOnly').checked;
+
+            filteredData = allData.filter(row => {
+                const matchName = !searchName || row.name.toLowerCase().includes(searchName);
+
+                // If comparing specific departments, only show those
+                let matchDept = true;
+                if (compareDepts.length > 0 && compareDepts[0] !== '') {
+                    matchDept = compareDepts.includes(row.department);
+                } else if (filterDept) {
+                    matchDept = row.department === filterDept;
+                }
+
+                const matchSalary = row.salary >= minSalary;
+                const matchStudents = row.student_credit_hours >= minStudents;
+
+                // Data quality filter
+                const recordType = getRecordType(row);
+                let matchQuality = false;
+                if (recordType === 'complete' && showComplete) matchQuality = true;
+                if (recordType === 'teaching' && showTeachingOnly) matchQuality = true;
+                if (recordType === 'research' && showResearchOnly) matchQuality = true;
+
+                return matchName && matchDept && matchSalary && matchStudents && matchQuality;
+            });
+
+            updateStats();
+            updateCharts();
+            updateDepartmentStats();
+            renderTable();
+        }
+
+        function updateStats() {
+            const total = filteredData.length;
+            const totalSalary = filteredData.reduce((sum, row) => sum + (row.salary || 0), 0);
+            const totalHours = filteredData.reduce((sum, row) => sum + (row.student_credit_hours || 0), 0);
+            const avgCost = totalHours > 0 ? totalSalary / totalHours : 0;
+
+            document.getElementById('totalProfessors').textContent = total.toLocaleString();
+            document.getElementById('totalSalary').textContent = '$' + (totalSalary / 1000000).toFixed(1) + 'M';
+            document.getElementById('avgCostPerHour').textContent = '$' + avgCost.toFixed(0);
+            document.getElementById('totalCreditHours').textContent = totalHours.toLocaleString();
+        }
+
+        function switchChart(chartType) {
+            currentChart = chartType;
+
+            // Update tab styling
+            document.querySelectorAll('.chart-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Show/hide charts
+            document.getElementById('scatterChartWrapper').style.display = chartType === 'scatter' ? 'block' : 'none';
+            document.getElementById('barChartWrapper').style.display = chartType === 'bar' ? 'block' : 'none';
+            document.getElementById('trendChartWrapper').style.display = chartType === 'trend' ? 'block' : 'none';
+
+            // Update trend chart if switching to it
+            if (chartType === 'trend') {
+                updateTrendChart();
+            }
+        }
+
+        function updateCharts() {
+            updateScatterChart();
+            updateBarChart();
+            if (currentChart === 'trend') {
+                updateTrendChart();
+            }
+        }
+
+        function updateTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            // Group by year and calculate average salary
+            const salariesByYear = {};
+            allData.forEach(row => {
+                if (!salariesByYear[row.year]) {
+                    salariesByYear[row.year] = [];
+                }
+                salariesByYear[row.year].push(row.salary);
+            });
+
+            const years = Object.keys(salariesByYear).sort();
+            const avgSalaries = years.map(year => {
+                const salaries = salariesByYear[year];
+                return salaries.reduce((a, b) => a + b, 0) / salaries.length;
+            });
+
+            if (trendChart) {
+                trendChart.destroy();
+            }
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: [{
+                        label: 'Average Faculty Salary',
+                        data: avgSalaries,
+                        borderColor: 'rgba(66, 153, 225, 1)',
+                        backgroundColor: 'rgba(66, 153, 225, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: 'rgba(66, 153, 225, 1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Average Salary: $' + context.parsed.y.toLocaleString(undefined, {maximumFractionDigits: 0});
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Year',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Average Salary ($)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    } else {
+                                        return '$' + (value / 1000) + 'k';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Color palette for departments
+        const departmentColors = [
+            { bg: 'rgba(102, 126, 234, 0.7)', border: 'rgba(102, 126, 234, 1)' },  // Purple
+            { bg: 'rgba(255, 99, 132, 0.7)', border: 'rgba(255, 99, 132, 1)' },    // Red
+            { bg: 'rgba(54, 162, 235, 0.7)', border: 'rgba(54, 162, 235, 1)' },    // Blue
+            { bg: 'rgba(255, 206, 86, 0.7)', border: 'rgba(255, 206, 86, 1)' },    // Yellow
+            { bg: 'rgba(75, 192, 192, 0.7)', border: 'rgba(75, 192, 192, 1)' },    // Teal
+            { bg: 'rgba(153, 102, 255, 0.7)', border: 'rgba(153, 102, 255, 1)' },  // Light Purple
+            { bg: 'rgba(255, 159, 64, 0.7)', border: 'rgba(255, 159, 64, 1)' },    // Orange
+            { bg: 'rgba(199, 199, 199, 0.7)', border: 'rgba(199, 199, 199, 1)' },  // Gray
+            { bg: 'rgba(83, 102, 255, 0.7)', border: 'rgba(83, 102, 255, 1)' },    // Indigo
+            { bg: 'rgba(255, 102, 196, 0.7)', border: 'rgba(255, 102, 196, 1)' }   // Pink
+        ];
+
+        function updateScatterChart() {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            const compareDepts = Array.from(document.querySelectorAll('#deptCheckboxContainer input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+
+            // Check if we're comparing specific departments
+            const isComparing = compareDepts.length > 0 && compareDepts[0] !== '';
+
+            if (scatterChart) {
+                scatterChart.destroy();
+            }
+
+            let datasets;
+
+            if (isComparing) {
+                // Create separate dataset for each department with different colors
+                datasets = compareDepts.map((dept, index) => {
+                    const deptData = filteredData
+                        .filter(row => row.department === dept && row.salary > 0 && row.student_credit_hours > 0)
+                        .map(row => ({
+                            x: row.student_credit_hours,
+                            y: row.salary,
+                            label: row.name + ' (' + row.department + ')'
+                        }));
+
+                    const color = departmentColors[index % departmentColors.length];
+
+                    return {
+                        label: getDeptFullName(dept),
+                        data: deptData,
+                        backgroundColor: color.bg,
+                        borderColor: color.border,
+                        borderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    };
+                });
+            } else {
+                // Single dataset with default color
+                const chartData = filteredData
+                    .filter(row => row.salary > 0 && row.student_credit_hours > 0)
+                    .map(row => ({
+                        x: row.student_credit_hours,
+                        y: row.salary,
+                        label: row.name + ' (' + row.department + ')'
+                    }));
+
+                datasets = [{
+                    label: 'Professors',
+                    data: chartData,
+                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 1,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }];
+            }
+
+            scatterChart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.raw.label +
+                                           '\nSalary: $' + context.parsed.y.toLocaleString() +
+                                           '\nCredit Hours: ' + context.parsed.x.toLocaleString();
+                                }
+                            }
+                        },
+                        legend: {
+                            display: isComparing,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Student Credit Hours Taught',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Annual Salary ($)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    } else {
+                                        return '$' + (value / 1000) + 'k';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateBarChart() {
+            const ctx = document.getElementById('barChart').getContext('2d');
+
+            // Calculate department statistics
+            const deptStats = {};
+            filteredData.forEach(row => {
+                if (!deptStats[row.department]) {
+                    deptStats[row.department] = {
+                        salaries: [],
+                        creditHours: [],
+                        count: 0
+                    };
+                }
+                deptStats[row.department].salaries.push(row.salary);
+                deptStats[row.department].creditHours.push(row.student_credit_hours);
+                deptStats[row.department].count++;
+            });
+
+            // Calculate averages and sort by average salary
+            const deptArray = Object.keys(deptStats).map(dept => {
+                const avgSalary = deptStats[dept].salaries.reduce((a, b) => a + b, 0) / deptStats[dept].count;
+                const avgCreditHours = deptStats[dept].creditHours.reduce((a, b) => a + b, 0) / deptStats[dept].count;
+                const costPerHour = avgSalary / avgCreditHours;
+                return {
+                    name: dept,
+                    avgSalary: avgSalary,
+                    avgCreditHours: avgCreditHours,
+                    costPerHour: costPerHour,
+                    count: deptStats[dept].count
+                };
+            }).sort((a, b) => b.avgSalary - a.avgSalary);
+
+            // Take top 15 departments by average salary
+            const topDepts = deptArray.slice(0, 15);
+
+            if (barChart) {
+                barChart.destroy();
+            }
+
+            barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topDepts.map(d => d.name),
+                    datasets: [{
+                        label: 'Average Salary',
+                        data: topDepts.map(d => d.avgSalary),
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const dept = topDepts[context.dataIndex];
+                                    return [
+                                        'Avg Salary: $' + dept.avgSalary.toLocaleString(undefined, {maximumFractionDigits: 0}),
+                                        'Avg Credit Hours: ' + dept.avgCreditHours.toLocaleString(undefined, {maximumFractionDigits: 0}),
+                                        'Cost/Hour: $' + dept.costPerHour.toLocaleString(undefined, {maximumFractionDigits: 0}),
+                                        'Professors: ' + dept.count
+                                    ];
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Department',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Average Salary ($)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    } else {
+                                        return '$' + (value / 1000) + 'k';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDepartmentStats() {
+            // Calculate department statistics (ONLY from complete records with both salary & teaching)
+            const deptStats = {};
+            allData.forEach(row => {
+                // Only include complete records for department stats
+                if (row.salary > 0 && row.student_credit_hours > 0) {
+                    if (!deptStats[row.department]) {
+                        deptStats[row.department] = {
+                            salaries: [],
+                            creditHours: [],
+                            costs: [],
+                            count: 0
+                        };
+                    }
+                    deptStats[row.department].salaries.push(row.salary);
+                    deptStats[row.department].creditHours.push(row.student_credit_hours);
+                    deptStats[row.department].costs.push(row.cost_per_credit_hour);
+                    deptStats[row.department].count++;
+                }
+            });
+
+            // Helper function to calculate median
+            function median(arr) {
+                if (arr.length === 0) return 0;
+                const sorted = [...arr].sort((a, b) => a - b);
+                const mid = Math.floor(sorted.length / 2);
+                return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+            }
+
+            // Calculate median and averages
+            const deptArray = Object.keys(deptStats).map(dept => {
+                const avgSalary = deptStats[dept].salaries.reduce((a, b) => a + b, 0) / deptStats[dept].count;
+                const medianSalary = median(deptStats[dept].salaries);
+                const avgCreditHours = deptStats[dept].creditHours.reduce((a, b) => a + b, 0) / deptStats[dept].count;
+                const medianCreditHours = median(deptStats[dept].creditHours);
+
+                // For cost per hour, filter out extreme outliers (> $10,000/hr)
+                const validCosts = deptStats[dept].costs.filter(c => c > 0 && c < 10000);
+                const avgCostPerHour = validCosts.length > 0
+                    ? validCosts.reduce((a, b) => a + b, 0) / validCosts.length
+                    : 0;
+                const medianCostPerHour = median(validCosts);
+
+                return {
+                    name: dept,
+                    avgSalary: avgSalary,
+                    medianSalary: medianSalary,
+                    avgCreditHours: avgCreditHours,
+                    medianCreditHours: medianCreditHours,
+                    avgCostPerHour: avgCostPerHour,
+                    medianCostPerHour: medianCostPerHour,
+                    count: deptStats[dept].count
+                };
+            });
+
+            // Get top 5 highest paid departments (by median to avoid outliers)
+            const highestPaid = [...deptArray]
+                .filter(d => d.count >= 5) // Only departments with 5+ professors
+                .sort((a, b) => b.medianSalary - a.medianSalary)
+                .slice(0, 5);
+
+            // Get top 5 most efficient departments (lowest cost per hour, by median)
+            const mostEfficient = [...deptArray]
+                .filter(d => d.count >= 5) // Only departments with 5+ professors
+                .sort((a, b) => a.medianCostPerHour - b.medianCostPerHour)
+                .slice(0, 5);
+
+            // Get top 5 departments teaching most students (by median)
+            const mostTeaching = [...deptArray]
+                .filter(d => d.count >= 5) // Only departments with 5+ professors
+                .sort((a, b) => b.medianCreditHours - a.medianCreditHours)
+                .slice(0, 5);
+
+            let html = '';
+            html += '<p style="color: #5a6c7d; font-size: 0.9em; margin-bottom: 25px; font-style: italic;">Note: These statistics use MEDIAN values (not affected by outliers) and only include complete records with both salary and teaching data. Rankings are fixed and do not change with filters above.</p>';
+
+            // Highest Paid Section
+            html += '<div class="stats-section">';
+            html += '<h3>Highest Paid Departments (by Median Salary)</h3>';
+            html += '<div class="top-list">';
+            highestPaid.forEach((dept, i) => {
+                const fullName = getDeptFullName(dept.name);
+                html += `
+                    <div class="top-card">
+                        <h4>#${i+1} ${fullName}</h4>
+                        <div class="professor-name">$${dept.medianSalary.toLocaleString(undefined, {maximumFractionDigits: 0})} median salary</div>
+                        <div class="professor-details">
+                            Median Credit Hours: ${dept.medianCreditHours.toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                            Median Cost/Hour: $${dept.medianCostPerHour.toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                            Complete Records: ${dept.count} professors
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+
+            // Most Efficient Section
+            html += '<div class="stats-section">';
+            html += '<h3>Most Cost-Efficient Departments (Lowest Median $/Credit Hour)</h3>';
+            html += '<div class="top-list">';
+            mostEfficient.forEach((dept, i) => {
+                const fullName = getDeptFullName(dept.name);
+                html += `
+                    <div class="top-card">
+                        <h4>#${i+1} ${fullName}</h4>
+                        <div class="professor-name">$${dept.medianCostPerHour.toLocaleString(undefined, {maximumFractionDigits: 0})} per credit hour</div>
+                        <div class="professor-details">
+                            Median Salary: $${dept.medianSalary.toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                            Median Credit Hours: ${dept.medianCreditHours.toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                            Complete Records: ${dept.count} professors
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+
+            // Highest Teaching Load Section
+            html += '<div class="stats-section">';
+            html += '<h3>Highest Teaching Load Departments (by Median Credit Hours)</h3>';
+            html += '<div class="top-list">';
+            mostTeaching.forEach((dept, i) => {
+                const fullName = getDeptFullName(dept.name);
+                html += `
+                    <div class="top-card">
+                        <h4>#${i+1} ${fullName}</h4>
+                        <div class="professor-name">${dept.medianCreditHours.toLocaleString(undefined, {maximumFractionDigits: 0})} median credit hours</div>
+                        <div class="professor-details">
+                            Median Salary: $${dept.medianSalary.toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                            Median Cost/Hour: $${dept.medianCostPerHour.toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                            Complete Records: ${dept.count} professors
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+
+            document.getElementById('departmentStats').innerHTML = html;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            filteredData.forEach(row => {
+                const tr = document.createElement('tr');
+                const deptFullName = getDeptFullName(row.department);
+                const recordType = getRecordType(row);
+
+                // Create badge HTML
+                let badge = '';
+                if (recordType === 'complete') {
+                    badge = '<span class="badge badge-complete">Complete</span>';
+                } else if (recordType === 'teaching') {
+                    badge = '<span class="badge badge-teaching">Adjunct</span>';
+                } else if (recordType === 'research') {
+                    badge = '<span class="badge badge-research">Research</span>';
+                }
+
+                tr.innerHTML = `
+                    <td><strong>${row.name}</strong>${badge}</td>
+                    <td>
+                        <div>${row.department}</div>
+                        <div class="dept-full-name">${deptFullName}</div>
+                    </td>
+                    <td>$${row.salary > 0 ? row.salary.toLocaleString() : '-'}</td>
+                    <td>${row.student_credit_hours > 0 ? row.student_credit_hours.toLocaleString() : '-'}</td>
+                    <td>${row.cost_per_credit_hour > 0 ? '$' + row.cost_per_credit_hour.toFixed(0) : '-'}</td>
+                    <td>${row.num_sections > 0 ? row.num_sections : '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        let sortDirection = {};
+        function sortTable(columnIndex) {
+            const columnNames = ['name', 'department', 'salary', 'student_credit_hours', 'cost_per_credit_hour', 'num_sections'];
+            const column = columnNames[columnIndex];
+
+            if (!sortDirection[column]) sortDirection[column] = 'asc';
+            else sortDirection[column] = sortDirection[column] === 'asc' ? 'desc' : 'asc';
+
+            filteredData.sort((a, b) => {
+                let aVal = a[column];
+                let bVal = b[column];
+
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+
+                if (sortDirection[column] === 'asc') {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+
+            renderTable();
+        }
+    </script>
+</body>
+</html>
